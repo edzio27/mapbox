@@ -16,6 +16,7 @@
 #import "SimpleKMLPolygon.h"
 #import "SimpleKMLLinearRing.h"
 #import "MKPolygon+PolygonTag.h"
+#import "MyLocation.h"
 
 @interface ViewController ()
 
@@ -23,6 +24,7 @@
 @property (nonatomic, strong) NSMutableArray *overlayArray;
 @property (nonatomic, strong) NSMutableArray *colorArray;
 @property (nonatomic, strong) NSMutableArray *titleArray;
+@property (nonatomic, strong) NSMutableArray *imageArray;
 
 @end
 
@@ -33,6 +35,13 @@
         _overlayArray = [[NSMutableArray alloc] init];
     }
     return _overlayArray;
+}
+
+- (NSMutableArray *)imageArray {
+    if(_imageArray == nil) {
+        _imageArray = [[NSMutableArray alloc] init];
+    }
+    return _imageArray;
 }
 
 - (NSMutableArray *)colorArray {
@@ -72,14 +81,23 @@
     /* add overlay to array */
     [self.overlayArray addObject:[self getOverlayPolygonFromKMLFileWithName:@"C13" andTag:0]];
     [self.overlayArray addObject:[self getOverlayPolygonFromKMLFileWithName:@"C1" andTag:1]];
+    [self.overlayArray addObject:[self getOverlayPolygonFromKMLFileWithName:@"C2" andTag:2]];
+
     
     /* add colors to array */
     [self.colorArray addObject:[UIColor blackColor]];
     [self.colorArray addObject:[UIColor blueColor]];
-    
+    [self.colorArray addObject:[UIColor redColor]];
+
     /* add title to array */
     [self.titleArray addObject:@"C13"];
     [self.titleArray addObject:@"C1"];
+    [self.titleArray addObject:@"C2"];
+    
+    /* add image to array */
+    [self.imageArray addObject:[UIImage imageNamed:@"c1.jpg"]];
+    [self.imageArray addObject:[UIImage imageNamed:@"c2.jpg"]];
+    [self.imageArray addObject:[UIImage imageNamed:@"c13.jpg"]];
     
     /* add overlays form array on map */
     for(MKPolygon *overlayPolygon in self.overlayArray) {
@@ -119,12 +137,14 @@
     CLLocationCoordinate2D tapPoint = [self.mapView convertPoint:point toCoordinateFromView:self.view];
     [self.mapView removeAnnotations:self.mapView.annotations];
     /* check status for each overlay in array */
-    for(MKPolygon *overlayPolygon in self.overlayArray) {
+    for(int i = 0; i < self.overlayArray.count; i++) {
+        MKPolygon *overlayPolygon = [self.overlayArray objectAtIndex:i];
         if([self isPoint:tapPoint insidePolygonOverlay:overlayPolygon]) {
-            MKPointAnnotation *annotation = [[MKPointAnnotation alloc] init];
-            annotation.coordinate = tapPoint;
-            annotation.title      = [self.titleArray objectAtIndex:overlayPolygon.tag];
-            [self.mapView addAnnotation:annotation];
+            MyLocation *pin = [[MyLocation alloc] initWithName:[self.titleArray objectAtIndex:i]
+                                                       address:@""
+                                                        coordinate:tapPoint
+                                                        identifier:[NSNumber numberWithInt:i]];
+            [self.mapView addAnnotation:pin];
         }
     }
 }
@@ -160,9 +180,36 @@
     return polygonView;
 }
 
-
-- (MKAnnotationView *)viewForAnnotation:(id <MKAnnotation>)point type:(int)state
-{
+-(MKAnnotationView *)mapView:(MKMapView *)mapView viewForAnnotation:(id)annotation{
+    NSLog(@"inside viewAnnotation");
+    static NSString *parkingAnnotationIdentifier=@"ParkingAnnotationIdentifier";
+    
+    if([annotation isKindOfClass:[MyLocation class]]){
+        MKPinAnnotationView* customPinView = [[MKPinAnnotationView alloc] initWithAnnotation:annotation reuseIdentifier:parkingAnnotationIdentifier] ;
+        customPinView.pinColor = MKPinAnnotationColorRed;
+        customPinView.animatesDrop = YES;
+        customPinView.canShowCallout = YES;
+        
+        UIButton* rightButton = [UIButton buttonWithType:UIButtonTypeDetailDisclosure];
+        rightButton.tag = [((MyLocation *)annotation).identifier integerValue];
+        [rightButton addTarget:self action:@selector(showGallery:) forControlEvents:UIControlEventTouchUpInside];
+        customPinView.rightCalloutAccessoryView = rightButton;
+        
+        
+        CGRect rect = CGRectMake(0, 0, 30, 30);
+        CGImageRef imageRef = CGImageCreateWithImageInRect([[self.imageArray objectAtIndex:[((MyLocation *)annotation).identifier integerValue]] CGImage], rect);
+        UIImage *result = [UIImage imageWithCGImage:imageRef];
+        
+        UIImageView *memorialIcon = [[UIImageView alloc] initWithImage:result];
+        customPinView.leftCalloutAccessoryView = memorialIcon;
+        return customPinView;
+    }
     return nil;
 }
+
+- (void)showGallery:(id)sender {
+    UIButton *button = (UIButton *)sender;
+    NSLog(@"id %d", button.tag);
+}
+
 @end
